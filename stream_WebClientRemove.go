@@ -7,5 +7,6 @@ func (s *stream) WebClientRemove(id string) {
 			s.webClients = append(s.webClients[:i], s.webClients[i+1:]...)
 		}
 	}
+	ToLog(s.id, "WebClientRemove(): "+id, false)
 	s.mu.Unlock()
 }

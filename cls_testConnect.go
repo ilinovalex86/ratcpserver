@@ -8,11 +8,13 @@ import (
 
 //Проверяет подключение
 func (cls *clients) testConnect(id string) bool {
+	const funcNameLog = "cls.testConnect(): "
 	var conn net.Conn
 	for {
 		cls.mu.Lock()
 		if !cls.m[id].status {
 			cls.mu.Unlock()
+			ToLog(id, funcNameLog+"!cls.m[id].status", false)
 			return false
 		}
 		if cls.m[id].busy {
@@ -28,11 +30,13 @@ func (cls *clients) testConnect(id string) bool {
 	err := cn.SendQuery(cn.Query{Method: "testConnect"}, conn)
 	if err != nil {
 		cls.errConn(id)
+		ToLog(id, funcNameLog+"cn.SendQuery(cn.Query{Method: \"testConnect\"}, conn)", false)
 		return false
 	}
 	_, err = cn.ReadResponse(conn)
 	if err != nil {
 		cls.errConn(id)
+		ToLog(id, funcNameLog+"cn.ReadResponse(conn)", false)
 		return false
 	}
 	cls.clientAccessFree(id)

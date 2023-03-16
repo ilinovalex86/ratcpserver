@@ -15,6 +15,11 @@ const keysFile = "keys"
 const uploadDir = "files"
 const clientsForLinux = "newClient"
 const clientsForWindows = "newClient.exe"
+const logsDir = "logsDir"
+const logsClientsDir = "logsClientsDir"
+const updaterServer = "updaterServer"
+const tcpServer = "tcpServer"
+const streamServer = "streamServer"
 
 var actualVersionClients string
 var keys map[string]string
@@ -81,11 +86,11 @@ type Event struct {
 	Shift  bool
 }
 
-//if err != nil -> log.Fatal(err)
-func check(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
+var logs = &logsData{m: make(map[string]bool)}
+
+type logsData struct {
+	mu sync.RWMutex
+	m  map[string]bool
 }
 
 func init() {
@@ -96,15 +101,23 @@ func init() {
 			"0.0.0":                "0000000000000000",
 		}
 		data, err := json.MarshalIndent(&keys, "", "  ")
-		check(err)
+		if err != nil {
+			log.Fatal("json.MarshalIndent(&keys, \"\", \"  \")")
+		}
 		err = ioutil.WriteFile(keysFile, data, 0644)
-		check(err)
+		if err != nil {
+			log.Fatal("ioutil.WriteFile(keysFile, data, 0644)")
+		}
 		log.Fatal("Файл конфигурации не найден. Создан новый файл конфигурации.")
 	} else {
 		data, err := ex.ReadFileFull(keysFile)
-		check(err)
+		if err != nil {
+			log.Fatal("ex.ReadFileFull(keysFile)")
+		}
 		err = json.Unmarshal(data, &keys)
-		check(err)
+		if err != nil {
+			log.Fatal("json.Unmarshal(data, &keys)")
+		}
 		var errB bool
 		if actualVersionClients, errB = keys["actualVersionClients"]; !errB {
 			log.Fatal("actualVersionClients does not exist in keys file")
@@ -120,9 +133,13 @@ func init() {
 	}
 	if ex.ExistFile(configFile) {
 		data, err := ex.ReadFileFull(configFile)
-		check(err)
+		if err != nil {
+			log.Fatal("ex.ReadFileFull(configFile)")
+		}
 		err = json.Unmarshal(data, &Conf)
-		check(err)
+		if err != nil {
+			log.Fatal("json.Unmarshal(data, &Conf)")
+		}
 	} else {
 		conf := config{
 			UpdaterServer:    "127.0.0.1:50000",
@@ -132,25 +149,49 @@ func init() {
 			WebServer:        "127.0.0.1:8080",
 		}
 		data, err := json.MarshalIndent(&conf, "", "  ")
-		check(err)
+		if err != nil {
+			log.Fatal("json.MarshalIndent(&conf, \"\", \"  \")")
+		}
 		err = ioutil.WriteFile(configFile, data, 0644)
-		check(err)
+		if err != nil {
+			log.Fatal("ioutil.WriteFile(configFile, data, 0644)")
+		}
 		log.Fatal("Файл конфигурации не найден. Создан новый файл конфигурации.")
 	}
 	if ex.ExistFile(clientsDB.file) {
 		data, err := ex.ReadFileFull(clientsDB.file)
-		check(err)
+		if err != nil {
+			log.Fatal("ex.ReadFileFull(clientsDB.file)")
+		}
 		err = json.Unmarshal(data, &Clients.m)
-		check(err)
+		if err != nil {
+			log.Fatal("json.Unmarshal(data, &Clients.m)")
+		}
 	}
 	if ex.ExistDir(uploadDir) {
 		err := ex.ClearDir(uploadDir)
-		check(err)
+		if err != nil {
+			log.Fatal("ex.ClearDir(uploadDir)")
+		}
 	} else {
 		err := ex.MakeDir(uploadDir)
-		check(err)
+		if err != nil {
+			log.Fatal("ex.MakeDir(uploadDir)")
+		}
 	}
-	go server(Conf.UpdaterServer, updaterConnector, "updaterServer")
-	go server(Conf.TcpServer, tcpConnector, "tcpServer")
-	go server(Conf.StreamServer, streamConnector, "streamServer")
+	if !ex.ExistDir(logsDir) {
+		err := ex.MakeDir(logsDir)
+		if err != nil {
+			log.Fatal("ex.MakeDir(logsDir)")
+		}
+	}
+	if !ex.ExistDir(logsClientsDir) {
+		err := ex.MakeDir(logsClientsDir)
+		if err != nil {
+			log.Fatal("ex.MakeDir(logsClientsDir)")
+		}
+	}
+	go server(Conf.UpdaterServer, updaterConnector, updaterServer)
+	go server(Conf.TcpServer, tcpConnector, tcpServer)
+	go server(Conf.StreamServer, streamConnector, streamServer)
 }
